@@ -44,6 +44,8 @@ html {
   --ai-claude: #F97316;           /* Orange */
   --ai-chatgpt: #22C55E;          /* Green */
   --ai-gemini: #3B82F6;           /* Blue */
+  --ai-grok: #EAB308;             /* Yellow */
+  --ai-cursor: #A78BFA;           /* Violet */
 
   /* Text Colors */
   --text-primary: #F8FAFC;        /* Slate 50 */
@@ -194,6 +196,7 @@ header .subtitle {
 .targets {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   gap: 4px;
   flex-shrink: 0;
   background: var(--bg-glass);
@@ -202,6 +205,195 @@ header .subtitle {
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   padding: 6px 8px;
+}
+
+/* ========== ROLE PREAMBLES ========== */
+.roles-section {
+  flex-shrink: 0;
+}
+
+.roles-section details {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.roles-section summary {
+  cursor: pointer;
+  color: var(--accent-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  list-style: none;
+}
+
+.roles-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.roles-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.role-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.role-field span {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.role-field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px;
+  resize: vertical;
+  min-height: 44px;
+}
+
+.role-field textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+/* ========== ROUND RESPONSES / EXPORT ========== */
+.round-section {
+  flex-shrink: 0;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px;
+  max-height: 220px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.round-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.round-header h3 {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.round-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ghost-btn {
+  padding: 4px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ghost-btn:hover {
+  border-color: var(--border-glass);
+  color: var(--text-primary);
+}
+
+.ghost-btn.primary-ghost {
+  border-color: rgba(14, 165, 233, 0.4);
+  color: var(--accent-primary);
+}
+
+.round-responses {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.round-responses .empty-hint {
+  margin: 0;
+}
+
+.round-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--bg-elevated);
+}
+
+.round-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.round-card-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.round-card-title.claude { color: var(--ai-claude); }
+.round-card-title.chatgpt { color: var(--ai-chatgpt); }
+.round-card-title.gemini { color: var(--ai-gemini); }
+.round-card-title.grok { color: var(--ai-grok); }
+.round-card-title.cursor { color: var(--ai-cursor); }
+
+.round-card-preview {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  max-height: 48px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.comment-others-btn {
+  padding: 3px 7px;
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent-primary);
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.comment-others-btn:hover {
+  background: rgba(14, 165, 233, 0.12);
+}
+
+.comment-others-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .target-label {
@@ -685,6 +877,7 @@ header .subtitle {
 
 .participant-options {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -1111,6 +1304,8 @@ header .subtitle {
 #summary-content .ai-name.claude { color: var(--ai-claude); }
 #summary-content .ai-name.chatgpt { color: var(--ai-chatgpt); }
 #summary-content .ai-name.gemini { color: var(--ai-gemini); }
+#summary-content .ai-name.grok { color: var(--ai-grok); }
+#summary-content .ai-name.cursor { color: var(--ai-cursor); }
 
 #new-discussion-btn {
   width: 100%;

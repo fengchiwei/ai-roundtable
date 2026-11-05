@@ -4,19 +4,29 @@
 const AI_URL_PATTERNS = {
   claude: ['claude.ai'],
   chatgpt: ['chat.openai.com', 'chatgpt.com'],
-  gemini: ['gemini.google.com']
+  gemini: ['gemini.google.com'],
+  grok: ['grok.com'],
+  cursor: ['cursor.com']
 };
 
 const CONTENT_SCRIPT_FILES = {
   claude: ['content/dom-utils.js', 'content/claude.js'],
   chatgpt: ['content/chatgpt.js'],
-  gemini: ['content/dom-utils.js', 'content/gemini.js']
+  gemini: ['content/dom-utils.js', 'content/gemini.js'],
+  grok: ['content/dom-utils.js', 'content/grok.js'],
+  cursor: ['content/dom-utils.js', 'content/cursor.js']
 };
 
 // Store latest responses using chrome.storage.session (persists across service worker restarts)
 async function getStoredResponses() {
   const result = await chrome.storage.session.get('latestResponses');
-  return result.latestResponses || { claude: null, chatgpt: null, gemini: null };
+  return result.latestResponses || {
+    claude: null,
+    chatgpt: null,
+    gemini: null,
+    grok: null,
+    cursor: null
+  };
 }
 
 async function setStoredResponse(aiType, content) {
@@ -245,6 +255,18 @@ function scoreAITab(aiType, tab) {
   if (aiType === 'gemini') {
     if (url.pathname.includes('/app/')) score += 100;
     else score += 30;
+  }
+
+  if (aiType === 'grok') {
+    if (url.pathname.startsWith('/chat') || url.pathname.includes('/c/')) score += 100;
+    else score += 40;
+  }
+
+  if (aiType === 'cursor') {
+    // Prefer Cloud Agents chat surfaces; avoid marketing/docs pages.
+    if (url.pathname.startsWith('/agents')) score += 120;
+    else if (url.pathname.includes('/agent')) score += 80;
+    else score += 10;
   }
 
   return score;

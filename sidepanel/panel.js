@@ -1,6 +1,17 @@
-// AI Panel - Side Panel Controller
+// AI Panel - Side Panel Controller (HAIC)
 
-const AI_TYPES = ['claude', 'chatgpt', 'gemini'];
+const AI_TYPES = ['claude', 'chatgpt', 'gemini', 'grok', 'cursor'];
+const AI_DISPLAY_NAMES = {
+  claude: 'Claude',
+  chatgpt: 'ChatGPT',
+  gemini: 'Gemini',
+  grok: 'Grok',
+  cursor: 'Cursor'
+};
+function mentionPattern() {
+  // Fresh regex each call — global flag would otherwise leak lastIndex
+  return /@(claude|chatgpt|gemini|grok|cursor)/gi;
+}
 
 // Cross-reference action keywords (inserted into message)
 const CROSS_REF_ACTIONS = {
@@ -18,15 +29,30 @@ const logContainer = document.getElementById('log-container');
 const fileInput = document.getElementById('file-input');
 const addFileBtn = document.getElementById('add-file-btn');
 const fileList = document.getElementById('file-list');
+const roundResponsesEl = document.getElementById('round-responses');
 
 // Selected files storage
 let selectedFiles = [];
+
+// Role preambles (local only)
+const rolePreambles = {
+  claude: '',
+  chatgpt: '',
+  gemini: '',
+  grok: '',
+  cursor: ''
+};
+
+// Current round captured responses: { aiType: { content, capturedAt } }
+const roundResponses = {};
 
 // Track connected tabs
 const connectedTabs = {
   claude: null,
   chatgpt: null,
-  gemini: null
+  gemini: null,
+  grok: null,
+  cursor: null
 };
 
 // Discussion Mode State
@@ -42,11 +68,15 @@ let discussionState = {
 
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadRolePreambles();
   checkConnectedTabs();
   setupEventListeners();
   setupDiscussionMode();
   setupFileUpload();
+  setupRoundControls();
+  setupRoleEditors();
+  renderRoundResponses();
 });
 
 function setupEventListeners() {
@@ -123,6 +153,7 @@ function setupEventListeners() {
       updateTabStatus(message.aiType, message.connected);
     } else if (message.type === 'RESPONSE_CAPTURED') {
       log(`${message.aiType}: Response captured`, 'success');
+      storeRoundResponse(message.aiType, message.content);
       // Handle discussion mode response
       if (discussionState.active && discussionState.pendingResponses.has(message.aiType)) {
         handleDiscussionResponse(message.aiType, message.content);
@@ -135,6 +166,200 @@ function setupEventListeners() {
       }
     }
   });
+}
+
+function setupRoundControls() {
+  document.getElementById('export-md-btn')?.addEventListener('click', exportRoundAsMarkdown);
+  document.getElementById('clear-round-btn')?.addEventListener('click', () => {
+    for (const ai of AI_TYPES) delete roundResponses[ai];
+    renderRoundResponses();
+    log('本轮回复已清空');
+  });
+  document.getElementById('refresh-round-btn')?.addEventListener('click', refreshRoundResponses);
+}
+
+function setupRoleEditors() {
+  for (const ai of AI_TYPES) {
+    const el = document.getElementById(`role-${ai}`);
+    if (!el) continue;
+    el.value = rolePreambles[ai] || '';
+    el.addEventListener('input', () => {
+      rolePreambles[ai] = el.value;
+      scheduleSaveRolePreambles();
+    });
+  }
+}
+
+let roleSaveTimer = null;
+function scheduleSaveRolePreambles() {
+  clearTimeout(roleSaveTimer);
+  roleSaveTimer = setTimeout(saveRolePreambles, 300);
+}
+
+async function loadRolePreambles() {
+  try {
+    const result = await chrome.storage.local.get('rolePreambles');
+    const saved = result.rolePreambles || {};
+    for (const ai of AI_TYPES) {
+      rolePreambles[ai] = typeof saved[ai] === 'string' ? saved[ai] : '';
+    }
+  } catch (err) {
+    log('读取角色前言失败: ' + err.message, 'error');
+  }
+}
+
+async function saveRolePreambles() {
+  try {
+    await chrome.storage.local.set({ rolePreambles: { ...rolePreambles } });
+  } catch (err) {
+    log('保存角色前言失败: ' + err.message, 'error');
+  }
+}
+
+function applyRolePreamble(aiType, message) {
+  const role = (rolePreambles[aiType] || '').trim();
+  if (!role) return message;
+  return `${role}\n\n${message}`;
+}
+
+function storeRoundResponse(aiType, content) {
+  if (!content || !String(content).trim()) return;
+  roundResponses[aiType] = {
+    content: String(content).trim(),
+    capturedAt: new Date().toISOString()
+  };
+  renderRoundResponses();
+}
+
+function renderRoundResponses() {
+  if (!roundResponsesEl) return;
+
+  const entries = AI_TYPES
+    .filter(ai => roundResponses[ai]?.content)
+    .map(ai => ({ ai, ...roundResponses[ai] }));
+
+  if (entries.length === 0) {
+    roundResponsesEl.innerHTML =
+      '<p class="hint empty-hint">送出后若捕获到回复，会显示在这里。可一键转给其余 AI 评论。</p>';
+    return;
+  }
+
+  roundResponsesEl.innerHTML = '';
+  for (const entry of entries) {
+    const card = document.createElement('div');
+    card.className = 'round-card';
+    const preview = entry.content.length > 180
+      ? entry.content.slice(0, 180) + '…'
+      : entry.content;
+
+    card.innerHTML = `
+      <div class="round-card-header">
+        <span class="round-card-title ${entry.ai}">${AI_DISPLAY_NAMES[entry.ai] || entry.ai}</span>
+        <button type="button" class="comment-others-btn" data-source-ai="${entry.ai}">请其余 AI 评论</button>
+      </div>
+      <div class="round-card-preview"></div>
+    `;
+    card.querySelector('.round-card-preview').textContent = preview;
+    card.querySelector('.comment-others-btn').addEventListener('click', () => {
+      askOthersToComment(entry.ai);
+    });
+    roundResponsesEl.appendChild(card);
+  }
+}
+
+async function refreshRoundResponses() {
+  log('正在刷新本轮回复…');
+  for (const ai of AI_TYPES) {
+    const content = await getLatestResponse(ai);
+    if (content && content.trim()) {
+      storeRoundResponse(ai, content);
+    }
+  }
+  log('本轮回复已刷新', 'success');
+}
+
+function getSelectedTargets() {
+  return AI_TYPES.filter(ai => {
+    const checkbox = document.getElementById(`target-${ai}`);
+    return checkbox && checkbox.checked;
+  });
+}
+
+async function askOthersToComment(sourceAI) {
+  const source = roundResponses[sourceAI]?.content || await getLatestResponse(sourceAI);
+  if (!source || !source.trim()) {
+    log(`无法取得 ${sourceAI} 的回复`, 'error');
+    return;
+  }
+
+  storeRoundResponse(sourceAI, source);
+
+  const targets = getSelectedTargets().filter(ai => ai !== sourceAI);
+  if (targets.length === 0) {
+    log('请先勾选至少一位其他 AI 作为评论目标', 'error');
+    return;
+  }
+
+  const prompt = `以下是 ${AI_DISPLAY_NAMES[sourceAI] || sourceAI} 的回复，请评论：你同意什么？不同意什么？有什么补充？
+
+<${sourceAI}_response>
+${source}
+</${sourceAI}_response>`;
+
+  log(`一键评论: ${sourceAI} → ${targets.join(', ')}`);
+  for (const target of targets) {
+    await sendToAI(target, prompt);
+  }
+}
+
+function buildRoundMarkdown() {
+  const now = new Date();
+  const stamp = now.toISOString().replace(/[:.]/g, '-');
+  const lines = [
+    '# AI 圆桌 · 本轮回复',
+    '',
+    `- 汇出时间: ${now.toISOString()}`,
+    `- 分支/版本: HAIC roundtable`,
+    ''
+  ];
+
+  let hasContent = false;
+  for (const ai of AI_TYPES) {
+    const entry = roundResponses[ai];
+    if (!entry?.content) continue;
+    hasContent = true;
+    lines.push(`## ${AI_DISPLAY_NAMES[ai] || ai}`);
+    lines.push('');
+    if (entry.capturedAt) {
+      lines.push(`_捕获时间: ${entry.capturedAt}_`);
+      lines.push('');
+    }
+    lines.push(entry.content.trim());
+    lines.push('');
+  }
+
+  if (!hasContent) return null;
+  return { markdown: lines.join('\n'), stamp };
+}
+
+function exportRoundAsMarkdown() {
+  const built = buildRoundMarkdown();
+  if (!built) {
+    log('没有可汇出的本轮回复', 'error');
+    return;
+  }
+
+  // UTF-8 without BOM: do not prepend \uFEFF
+  const blob = new Blob([built.markdown], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ai-roundtable-${built.stamp}.md`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  log('已汇出 UTF-8 无 BOM 的 .md', 'success');
 }
 
 async function checkConnectedTabs() {
@@ -158,6 +383,8 @@ function getAITypeFromUrl(url) {
   if (url.includes('claude.ai')) return 'claude';
   if (url.includes('chat.openai.com') || url.includes('chatgpt.com')) return 'chatgpt';
   if (url.includes('gemini.google.com')) return 'gemini';
+  if (url.includes('grok.com')) return 'grok';
+  if (url.includes('cursor.com')) return 'cursor';
   return null;
 }
 
@@ -180,17 +407,14 @@ async function handleSend() {
   // Parse message for @ mentions
   const parsed = parseMessage(message);
 
-  // Determine targets
+  // Determine targets — any number of AIs may speak (no 2/3-person lock-in)
   let targets;
   if (parsed.mentions.length > 0) {
     // If @ mentioned specific AIs, only send to those
     targets = parsed.mentions;
   } else {
     // Otherwise use checkbox selection
-    targets = AI_TYPES.filter(ai => {
-      const checkbox = document.getElementById(`target-${ai}`);
-      return checkbox && checkbox.checked;
-    });
+    targets = getSelectedTargets();
   }
 
   if (targets.length === 0) {
@@ -273,14 +497,13 @@ function parseMessage(message) {
     const afterArrow = message.substring(arrowIndex + 2).trim();  // Skip "<-"
 
     // Extract targets (before arrow)
-    const mentionPattern = /@(claude|chatgpt|gemini)/gi;
-    const targetMatches = [...beforeArrow.matchAll(mentionPattern)];
+    const targetMatches = [...beforeArrow.matchAll(mentionPattern())];
     const targetAIs = [...new Set(targetMatches.map(m => m[1].toLowerCase()))];
 
     // Extract sources and message (after arrow)
     // Find all @mentions in afterArrow, sources are all @mentions
     // Message is everything after the last @mention
-    const sourceMatches = [...afterArrow.matchAll(mentionPattern)];
+    const sourceMatches = [...afterArrow.matchAll(mentionPattern())];
     const sourceAIs = [...new Set(sourceMatches.map(m => m[1].toLowerCase()))];
 
     // Find where the actual message starts (after the last @mention)
@@ -303,12 +526,11 @@ function parseMessage(message) {
   }
 
   // Pattern-based detection for @ mentions
-  const mentionPattern = /@(claude|chatgpt|gemini)/gi;
-  const matches = [...message.matchAll(mentionPattern)];
+  const matches = [...message.matchAll(mentionPattern())];
   const mentions = [...new Set(matches.map(m => m[1].toLowerCase()))];
 
-  // For exactly 2 AIs: use keyword detection (simpler syntax)
-  // Last mentioned = source (being evaluated), first = target (doing evaluation)
+  // Exactly 2 @mentions + evaluation keywords → treat as one-way cross-ref
+  // (convenience only; free multi-AI speaking does not require this)
   if (mentions.length === 2) {
     const evalKeywords = /评价|看看|怎么样|怎么看|如何|讲的|说的|回答|赞同|同意|分析|认为|观点|看法|意见|借鉴|批评|补充|对比|evaluate|think of|opinion|review|agree|analysis|compare|learn from/i;
 
@@ -326,8 +548,7 @@ function parseMessage(message) {
     }
   }
 
-  // For 3+ AIs without /cross command: just send to all (no cross-reference)
-  // User should use /cross command for complex 3-AI scenarios
+  // Any number of mentions without cross-ref: send to all mentioned
   return {
     crossRef: false,
     mentions,
@@ -422,9 +643,10 @@ async function getLatestResponse(aiType) {
 }
 
 async function sendToAI(aiType, message) {
+  const finalMessage = applyRolePreamble(aiType, message);
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(
-      { type: 'SEND_MESSAGE', aiType, message },
+      { type: 'SEND_MESSAGE', aiType, message: finalMessage },
       (response) => {
         if (response?.success) {
           log(`Sent to ${aiType}`, 'success');

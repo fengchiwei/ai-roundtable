@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +10,7 @@
   <div class="container">
     <header>
       <h1>AI 圆桌</h1>
-      <p class="subtitle">Multi-AI Roundtable</p>
+      <p class="subtitle">Multi-AI Roundtable · HAIC</p>
     </header>
 
     <!-- Mode Switcher -->
@@ -50,6 +50,45 @@
         <span class="target-name">Gemini</span>
         <span class="status" id="status-gemini"></span>
       </label>
+      <label class="target-label">
+        <input type="checkbox" id="target-grok" checked>
+        <span class="target-name">Grok</span>
+        <span class="status" id="status-grok"></span>
+      </label>
+      <label class="target-label">
+        <input type="checkbox" id="target-cursor" checked>
+        <span class="target-name">Cursor</span>
+        <span class="status" id="status-cursor"></span>
+      </label>
+    </section>
+
+    <section class="roles-section">
+      <details id="roles-details">
+        <summary>角色前言（送出时自动加在讯息开头）</summary>
+        <div class="roles-grid" id="roles-grid">
+          <label class="role-field">
+            <span>Claude</span>
+            <textarea id="role-claude" rows="2" placeholder="可选：此 AI 的角色设定…"></textarea>
+          </label>
+          <label class="role-field">
+            <span>ChatGPT</span>
+            <textarea id="role-chatgpt" rows="2" placeholder="可选：此 AI 的角色设定…"></textarea>
+          </label>
+          <label class="role-field">
+            <span>Gemini</span>
+            <textarea id="role-gemini" rows="2" placeholder="可选：此 AI 的角色设定…"></textarea>
+          </label>
+          <label class="role-field">
+            <span>Grok</span>
+            <textarea id="role-grok" rows="2" placeholder="可选：此 AI 的角色设定…"></textarea>
+          </label>
+          <label class="role-field">
+            <span>Cursor</span>
+            <textarea id="role-cursor" rows="2" placeholder="可选：此 AI 的角色设定…"></textarea>
+          </label>
+        </div>
+        <p class="hint">仅保存在本机 chrome.storage.local，不会上传。</p>
+      </details>
     </section>
 
     <section class="input-section">
@@ -57,7 +96,7 @@
       <div class="toolbar">
         <div class="toolbar-group commands">
           <button class="shortcut-btn" id="mutual-btn" data-insert="/mutual " title="互评：让所有 AI 互相评价">/mutual</button>
-          <button class="shortcut-btn" id="cross-btn" data-insert="/cross " title="交叉：两个围攻一个">/cross</button>
+          <button class="shortcut-btn" id="cross-btn" data-insert="/cross " title="交叉：指定评价目标与来源">/cross</button>
           <button class="shortcut-btn" id="arrow-btn" data-insert=" <- " title="来源箭头：指定被评价的 AI">←</button>
           <select id="action-select" class="action-select" title="插入动作词">
             <option value="">动作</option>
@@ -73,11 +112,13 @@
           <button class="mention-btn" data-mention="@Claude" title="引用 Claude">@Claude</button>
           <button class="mention-btn" data-mention="@ChatGPT" title="引用 ChatGPT">@ChatGPT</button>
           <button class="mention-btn" data-mention="@Gemini" title="引用 Gemini">@Gemini</button>
+          <button class="mention-btn" data-mention="@Grok" title="引用 Grok">@Grok</button>
+          <button class="mention-btn" data-mention="@Cursor" title="引用 Cursor">@Cursor</button>
         </div>
       </div>
       <textarea
         id="message-input"
-        placeholder="输入消息...&#10;&#10;互评: /mutual（基于当前回复）&#10;单向: @Claude 评价一下 @ChatGPT"
+        placeholder="输入消息（可同时发给多个 AI）&#10;&#10;互评: /mutual（基于当前回复）&#10;单向: @Claude 评价一下 @ChatGPT&#10;一键评论：在下方「本轮回复」点按钮"
         rows="6"
       ></textarea>
       <!-- Bottom Action Bar -->
@@ -99,9 +140,33 @@
       </div>
     </section>
 
+    <section class="round-section">
+      <div class="round-header">
+        <h3>本轮回复</h3>
+        <div class="round-actions">
+          <button type="button" id="refresh-round-btn" class="ghost-btn" title="从各 AI 页面重新抓取最新回复">刷新</button>
+          <button type="button" id="clear-round-btn" class="ghost-btn" title="清空本轮缓存">清空</button>
+          <button type="button" id="export-md-btn" class="ghost-btn primary-ghost" title="汇出为 UTF-8 无 BOM 的 .md">汇出 .md</button>
+        </div>
+      </div>
+      <div id="round-responses" class="round-responses">
+        <p class="hint empty-hint">送出后若捕获到回复，会显示在这里。可一键转给其余 AI 评论。</p>
+      </div>
+    </section>
+
     <section class="help">
       <details>
         <summary>命令帮助</summary>
+        <p class="help-subtitle">自由发言</p>
+        <ul>
+          <li>勾选任意数量 AI，同一则讯息可同时送出</li>
+          <li>不限制二人／三人对话；各 AI 皆可发言</li>
+        </ul>
+        <p class="help-subtitle">一键评论</p>
+        <ul>
+          <li>在「本轮回复」中点「请其余 AI 评论」</li>
+          <li>会将该 AI 的回覆转给目前勾选的其他 AI</li>
+        </ul>
         <p class="help-subtitle">互评 /mutual（推荐）</p>
         <ul>
           <li><code>/mutual</code><br><small>让所有选中的 AI 互评当前回复</small></li>
@@ -110,13 +175,13 @@
         <p class="help-subtitle">单向引用</p>
         <ul>
           <li><code>@Claude 评价一下 @ChatGPT</code></li>
-          <li><code>/cross @Claude @Gemini <- @ChatGPT</code></li>
+          <li><code>/cross @Claude @Grok <- @Cursor</code></li>
         </ul>
       </details>
     </section>
     </div><!-- end normal-mode -->
 
-    <!-- Discussion Mode Content -->
+    <!-- Discussion Mode Content (upstream 2-AI debate; not the HAIC focus) -->
     <div id="discussion-mode" class="hidden">
       <section class="discussion-setup" id="discussion-setup">
         <h3>开始讨论</h3>
@@ -135,8 +200,16 @@
               <input type="checkbox" name="participant" value="gemini">
               <span class="target-name gemini">Gemini</span>
             </label>
+            <label class="participant-option">
+              <input type="checkbox" name="participant" value="grok">
+              <span class="target-name grok">Grok</span>
+            </label>
+            <label class="participant-option">
+              <input type="checkbox" name="participant" value="cursor">
+              <span class="target-name cursor">Cursor</span>
+            </label>
           </div>
-          <p class="hint">请选择 2 位参与者</p>
+          <p class="hint">上游讨论模式仍为 2 位参与者。自由多 AI 发言请用「普通」模式。</p>
         </div>
         <textarea
           id="discussion-topic"
@@ -223,7 +296,7 @@
     </section>
 
     <footer class="copyright">
-      © AXTONLIU™ & AI 精英学院™
+      © AXTONLIU™ & AI 精英学院™ · HAIC 改良
     </footer>
   </div>
 
