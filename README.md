@@ -2,13 +2,45 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Status: Experimental](https://img.shields.io/badge/Status-Experimental-orange.svg)](#-experimental-prototype--实验性原型)
+[![Fork: HAIC](https://img.shields.io/badge/Fork-HAIC%20roundtable-blue.svg)](#-haic-改良说明-fengchiwei)
 
 > 让多个 AI 助手围桌讨论，交叉评价，深度协作
 
-一个 Chrome 扩展，让你像"会议主持人"一样，同时操控多个 AI（Claude、ChatGPT、Gemini），实现真正的 AI 圆桌会议。
+一个 Chrome 扩展，让你像"会议主持人"一样，同时操控多个 AI（Claude、ChatGPT、Gemini、Grok、Cursor Agents），实现真正的 AI 圆桌会议。
+
+本仓库为 [axtonliu/ai-roundtable](https://github.com/axtonliu/ai-roundtable) 的 fork；**HAIC 改良**在分支 `haic-roundtable` 上开发（不修改 `main` 的上游基线意图）。
 
 <!-- TODO: 添加 GIF 演示 -->
 <!-- ![Demo GIF](assets/demo.gif) -->
+
+---
+
+## 🛠️ HAIC 改良说明（fengchiwei）
+
+相对上游，本分支（`haic-roundtable`）新增／调整：
+
+1. **角色前言** — 每个 AI 可设定角色文字，送出时自动加在讯息开头（仅存 `chrome.storage.local`）。
+2. **Grok / Cursor 支援** — 新增 `content/grok.js`（`grok.com`）、`content/cursor.js`（`cursor.com/agents`），可送出讯息并抓回最新回覆。
+3. **汇出本轮回覆** — 侧边栏「汇出 .md」产出 **UTF-8 无 BOM** 的 Markdown（本机下载，不上传）。
+4. **自由发言与一键评论** — 不特意做二人／三人对话模式；普通模式可同时对任意数量 AI 发言；「本轮回复」中可将任一 AI 回覆一键转给其余已勾选 AI 请其评论。上游既有「讨论模式」（固定 2 人）仍保留，但非 HAIC 重点。
+
+**隐私（HAIC 承诺）**
+
+- 不存放 API 金钥、密码或个资栏位
+- 不将对话内容上传至第三方伺服器；扩展逻辑在本机与已开启的 AI 网页之间运作
+
+**修改档案一览**
+
+| 档案 | 变更 |
+|------|------|
+| `manifest.json` | 版本 0.2.0；host／content_scripts 加入 Grok、Cursor |
+| `background.js` | AI 路由与 tab 评分支援 grok／cursor |
+| `content/grok.js` | 新增 |
+| `content/cursor.js` | 新增 |
+| `sidepanel/panel.html` | 角色前言、本轮回复、汇出、Grok／Cursor UI |
+| `sidepanel/panel.js` | 角色前言、汇出、一键评论、多 AI 目标 |
+| `sidepanel/panel.css` | 对应样式 |
+| `README.md` | 本说明 |
 
 ---
 
@@ -81,11 +113,14 @@ I'm currently most satisfied with, and calibrated to, the **web chat experience*
 ## 核心特性
 
 - **统一控制台** - 通过 Chrome 侧边栏同时管理多个 AI
-- **多目标发送** - 一条消息同时发给多个 AI，对比回答
+- **多目标发送** - 一条消息同时发给多个 AI，对比回答（Claude / ChatGPT / Gemini / Grok / Cursor）
+- **角色前言** - 各 AI 可设定角色文字，送出时自动前置
+- **一键评论** - 将任一 AI 本轮回覆转给其余 AI 请其评论
+- **汇出 Markdown** - 本轮各 AI 回覆汇出为 UTF-8 无 BOM 的 `.md`
 - **文件上传** - 同时向多个 AI 发送图片或文档附件
 - **互评模式** - 让所有 AI 互相评价，对等参与（/mutual 命令）
-- **交叉引用** - 让 Claude 评价 ChatGPT 的回答，或反过来
-- **讨论模式** - 两个 AI 就同一主题进行多轮深度讨论
+- **交叉引用** - 让某 AI 评价另一 AI 的回答
+- **讨论模式** - 两个 AI 就同一主题进行多轮深度讨论（上游功能，非 HAIC 重点）
 - **无需 API** - 直接操作网页界面，使用你现有的 AI 订阅
 
 ---
@@ -133,8 +168,10 @@ I'm currently most satisfied with, and calibrated to, the **web chat experience*
    - [Claude](https://claude.ai)
    - [ChatGPT](https://chatgpt.com)
    - [Gemini](https://gemini.google.com)
+   - [Grok](https://grok.com)
+   - [Cursor Agents](https://cursor.com/agents)
 
-2. 推荐使用 Chrome 的 Split Tab 功能，将 2 个 AI 页面并排显示
+2. 推荐使用 Chrome 的 Split Tab 功能，将多个 AI 页面并排显示
 
 3. 点击扩展图标，打开侧边栏控制台
 
@@ -145,9 +182,11 @@ I'm currently most satisfied with, and calibrated to, the **web chat experience*
 ### 普通模式
 
 **基本发送**
-1. 勾选要发送的目标 AI（Claude / ChatGPT / Gemini）
-2. 输入消息
-3. 按 Enter 或点击「发送」按钮
+1. 勾选要发送的目标 AI（Claude / ChatGPT / Gemini / Grok / Cursor；任意数量）
+2.（可选）展开「角色前言」为各 AI 设定角色文字
+3. 输入消息
+4. 按 Enter 或点击「发送」按钮
+5. 在「本轮回复」可一键「请其余 AI 评论」，或「汇出 .md」
 
 **@ 提及语法**
 - 点击 @ 按钮快速插入 AI 名称
@@ -216,9 +255,12 @@ ai-roundtable/
 │   ├── panel.css          # 样式
 │   └── panel.js           # 控制逻辑
 ├── content/
+│   ├── dom-utils.js       # 共用 DOM 辅助
 │   ├── claude.js          # Claude 页面注入脚本
 │   ├── chatgpt.js         # ChatGPT 页面注入脚本
-│   └── gemini.js          # Gemini 页面注入脚本
+│   ├── gemini.js          # Gemini 页面注入脚本
+│   ├── grok.js            # Grok 页面注入脚本 (HAIC)
+│   └── cursor.js          # Cursor Agents 页面注入脚本 (HAIC)
 └── icons/                  # 扩展图标
 ```
 
@@ -250,7 +292,9 @@ ai-roundtable/
 ## 已知限制
 
 - 依赖各 AI 平台的 DOM 结构，平台更新可能导致功能失效
-- 讨论模式固定 2 个参与者
+- **Grok / Cursor Agents** 的选择器为 best-effort：网站改版后可能需调整 `content/grok.js`、`content/cursor.js`
+- Cursor 请使用 [cursor.com/agents](https://cursor.com/agents) 的网页对话页；桌面 IDE 内嵌聊天不在支援范围
+- 讨论模式固定 2 个参与者（上游设计；自由多 AI 请用普通模式）
 - 不支持 Claude Artifacts、ChatGPT Canvas 等特殊功能
 - **Gemini 不支持自动文件上传** - 由于 Google 的安全限制，Gemini 需要手动上传文件（Claude 和 ChatGPT 正常支持）
 
