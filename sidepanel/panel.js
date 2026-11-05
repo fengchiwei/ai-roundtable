@@ -46,6 +46,9 @@ const rolePreambles = {
 // Current round captured responses: { aiType: { content, capturedAt } }
 const roundResponses = {};
 
+// The user's question / discussion topic for this round (not "who to critique")
+let lastRoundTopic = '';
+
 // Track connected tabs
 const connectedTabs = {
   claude: null,
@@ -172,10 +175,12 @@ function setupRoundControls() {
   document.getElementById('export-md-btn')?.addEventListener('click', exportRoundAsMarkdown);
   document.getElementById('clear-round-btn')?.addEventListener('click', () => {
     for (const ai of AI_TYPES) delete roundResponses[ai];
+    lastRoundTopic = '';
     renderRoundResponses();
     log('本轮回复已清空');
   });
   document.getElementById('refresh-round-btn')?.addEventListener('click', refreshRoundResponses);
+  document.getElementById('comment-topic-btn')?.addEventListener('click', askCommentOnTopic);
 }
 
 function setupRoleEditors() {
@@ -234,13 +239,29 @@ function storeRoundResponse(aiType, content) {
 function renderRoundResponses() {
   if (!roundResponsesEl) return;
 
+  const topicEl = document.getElementById('round-topic-display');
+  if (topicEl) {
+    if (lastRoundTopic) {
+      topicEl.textContent = `本轮问题／议题：${lastRoundTopic}`;
+      topicEl.classList.remove('hidden');
+    } else {
+      topicEl.textContent = '';
+      topicEl.classList.add('hidden');
+    }
+  }
+
+  const commentBtn = document.getElementById('comment-topic-btn');
+  if (commentBtn) {
+    commentBtn.disabled = !lastRoundTopic;
+  }
+
   const entries = AI_TYPES
     .filter(ai => roundResponses[ai]?.content)
     .map(ai => ({ ai, ...roundResponses[ai] }));
 
   if (entries.length === 0) {
     roundResponsesEl.innerHTML =
-      '<p class="hint empty-hint">送出后若捕获到回复，会显示在这里。可一键转给其余 AI 评论。</p>';
+      '<p class="hint empty-hint">先输入问题发给勾选的 AI；他们会直接回覆你的问题。之后可点「就本议题再评论」。</p>';
     return;
   }
 
@@ -255,14 +276,10 @@ function renderRoundResponses() {
     card.innerHTML = `
       <div class="round-card-header">
         <span class="round-card-title ${entry.ai}">${AI_DISPLAY_NAMES[entry.ai] || entry.ai}</span>
-        <button type="button" class="comment-others-btn" data-source-ai="${entry.ai}">请其余 AI 评论</button>
       </div>
       <div class="round-card-preview"></div>
     `;
     card.querySelector('.round-card-preview').textContent = preview;
-    card.querySelector('.comment-others-btn').addEventListener('click', () => {
-      askOthersToComment(entry.ai);
-    });
     roundResponsesEl.appendChild(card);
   }
 }
@@ -285,30 +302,50 @@ function getSelectedTargets() {
   });
 }
 
-async function askOthersToComment(sourceAI) {
-  const source = roundResponses[sourceAI]?.content || await getLatestResponse(sourceAI);
-  if (!source || !source.trim()) {
-    log(`无法取得 ${sourceAI} 的回复`, 'error');
+/**
+ * Ask selected AIs to comment on the user's question / discussion topic.
+ * Not "pick an AI as critique target" — focus is the matter under discussion.
+ */
+async function askCommentOnTopic() {
+  const topic = (lastRoundTopic || '').trim();
+  if (!topic) {
+    log('尚无本轮问题／议题。请先发送一则问题给 AI。', 'error');
     return;
   }
 
-  storeRoundResponse(sourceAI, source);
-
-  const targets = getSelectedTargets().filter(ai => ai !== sourceAI);
-  if (targets.length === 0) {
-    log('请先勾选至少一位其他 AI 作为评论目标', 'error');
+  const speakers = getSelectedTargets();
+  if (speakers.length === 0) {
+    log('请先勾选要发言的 AI', 'error');
     return;
   }
 
-  const prompt = `以下是 ${AI_DISPLAY_NAMES[sourceAI] || sourceAI} 的回复，请评论：你同意什么？不同意什么？有什么补充？
+  let prompt = `请针对以下问题／讨论议题发表评论与看法（直接回覆议题本身，不是评价某一个 AI）：
 
-<${sourceAI}_response>
-${source}
-</${sourceAI}_response>`;
+<topic>
+${topic}
+</topic>
+`;
 
-  log(`一键评论: ${sourceAI} → ${targets.join(', ')}`);
-  for (const target of targets) {
-    await sendToAI(target, prompt);
+  const prior = AI_TYPES
+    .filter(ai => roundResponses[ai]?.content)
+    .map(ai => ({ ai, content: roundResponses[ai].content }));
+
+  if (prior.length > 0) {
+    prompt += `\n以下是目前讨论中已有的发言，仅供参考上下文（请围绕议题本身评论，不必指名批评某一方）：\n`;
+    for (const item of prior) {
+      prompt += `
+<discussion_note speaker="${AI_DISPLAY_NAMES[item.ai] || item.ai}">
+${item.content}
+</discussion_note>
+`;
+    }
+  }
+
+  prompt += `\n请给出你对议题的评论：关键判断、依据、补充或不同意见。`;
+
+  log(`就本议题再评论 → ${speakers.join(', ')}`);
+  for (const ai of speakers) {
+    await sendToAI(ai, prompt);
   }
 }
 
@@ -322,6 +359,13 @@ function buildRoundMarkdown() {
     `- 分支/版本: HAIC roundtable`,
     ''
   ];
+
+  if (lastRoundTopic) {
+    lines.push('## 本轮问题／议题');
+    lines.push('');
+    lines.push(lastRoundTopic.trim());
+    lines.push('');
+  }
 
   let hasContent = false;
   for (const ai of AI_TYPES) {
@@ -418,7 +462,7 @@ async function handleSend() {
   }
 
   if (targets.length === 0) {
-    log('No targets selected', 'error');
+    log('请先勾选要回覆问题的 AI', 'error');
     return;
   }
 
@@ -454,8 +498,10 @@ async function handleSend() {
       log(`Cross-reference: ${parsed.targetAIs.join(', ')} <- ${parsed.sourceAIs.join(', ')}`);
       await handleCrossReference(parsed);
     } else {
-      // Send to target(s)
-      log(`Sending to: ${targets.join(', ')}`);
+      // Normal: AIs reply to the user's question / discuss the topic
+      lastRoundTopic = message;
+      renderRoundResponses();
+      log(`发送问题给: ${targets.join(', ')}`);
       for (const target of targets) {
         await sendToAI(target, message);
       }

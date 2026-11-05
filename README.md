@@ -22,7 +22,7 @@
 1. **角色前言** — 每个 AI 可设定角色文字，送出时自动加在讯息开头（仅存 `chrome.storage.local`）。
 2. **Grok / Cursor 支援** — 新增 `content/grok.js`（`grok.com`）、`content/cursor.js`（`cursor.com/agents`），可送出讯息并抓回最新回覆。
 3. **汇出本轮回覆** — 侧边栏「汇出 .md」产出 **UTF-8 无 BOM** 的 Markdown（本机下载，不上传）。
-4. **自由发言与一键评论** — 不特意做二人／三人对话模式；普通模式可同时对任意数量 AI 发言；「本轮回复」中可将任一 AI 回覆一键转给其余已勾选 AI 请其评论。上游既有「讨论模式」（固定 2 人）仍保留，但非 HAIC 重点。
+4. **回覆问题／就议题评论** — 勾选的 AI 直接回覆你的问题；「就本议题再评论」是针对本轮问题／事件发言（不是指定某 AI 当评论对象）。上游「讨论模式」仍保留，但非 HAIC 重点。
 
 **隐私（HAIC 承诺）**
 
@@ -115,7 +115,7 @@ I'm currently most satisfied with, and calibrated to, the **web chat experience*
 - **统一控制台** - 通过 Chrome 侧边栏同时管理多个 AI
 - **多目标发送** - 一条消息同时发给多个 AI，对比回答（Claude / ChatGPT / Gemini / Grok / Cursor）
 - **角色前言** - 各 AI 可设定角色文字，送出时自动前置
-- **一键评论** - 将任一 AI 本轮回覆转给其余 AI 请其评论
+- **就议题再评论** - 请 AI 针对本轮问题／讨论事件再发言（非指定评论对象）
 - **汇出 Markdown** - 本轮各 AI 回覆汇出为 UTF-8 无 BOM 的 `.md`
 - **文件上传** - 同时向多个 AI 发送图片或文档附件
 - **互评模式** - 让所有 AI 互相评价，对等参与（/mutual 命令）

@@ -118,7 +118,7 @@
       </div>
       <textarea
         id="message-input"
-        placeholder="输入消息（可同时发给多个 AI）&#10;&#10;互评: /mutual（基于当前回复）&#10;单向: @Claude 评价一下 @ChatGPT&#10;一键评论：在下方「本轮回复」点按钮"
+        placeholder="输入你的问题或讨论议题（勾选的 AI 会直接回覆）&#10;&#10;之后可在下方点「就本议题再评论」&#10;进阶（可选）: /mutual 互相参照已有发言"
         rows="6"
       ></textarea>
       <!-- Bottom Action Bar -->
@@ -144,38 +144,35 @@
       <div class="round-header">
         <h3>本轮回复</h3>
         <div class="round-actions">
+          <button type="button" id="comment-topic-btn" class="ghost-btn primary-ghost" title="请勾选的 AI 就本轮问题／议题再评论" disabled>就本议题再评论</button>
           <button type="button" id="refresh-round-btn" class="ghost-btn" title="从各 AI 页面重新抓取最新回复">刷新</button>
           <button type="button" id="clear-round-btn" class="ghost-btn" title="清空本轮缓存">清空</button>
           <button type="button" id="export-md-btn" class="ghost-btn primary-ghost" title="汇出为 UTF-8 无 BOM 的 .md">汇出 .md</button>
         </div>
       </div>
+      <p id="round-topic-display" class="round-topic-display hidden"></p>
       <div id="round-responses" class="round-responses">
-        <p class="hint empty-hint">送出后若捕获到回复，会显示在这里。可一键转给其余 AI 评论。</p>
+        <p class="hint empty-hint">先输入问题发给勾选的 AI；他们会直接回覆你的问题。之后可点「就本议题再评论」。</p>
       </div>
     </section>
 
     <section class="help">
       <details>
         <summary>命令帮助</summary>
-        <p class="help-subtitle">自由发言</p>
+        <p class="help-subtitle">回覆你的问题</p>
         <ul>
-          <li>勾选任意数量 AI，同一则讯息可同时送出</li>
-          <li>不限制二人／三人对话；各 AI 皆可发言</li>
+          <li>勾选要发言的 AI，输入问题后发送 → 各 AI 直接回覆该问题</li>
+          <li>上方勾选是「谁来回答」，不是「评论对象」</li>
         </ul>
-        <p class="help-subtitle">一键评论</p>
+        <p class="help-subtitle">对讨论议题再评论</p>
         <ul>
-          <li>在「本轮回复」中点「请其余 AI 评论」</li>
-          <li>会将该 AI 的回覆转给目前勾选的其他 AI</li>
+          <li>点「就本议题再评论」→ 请勾选的 AI 针对<strong>本轮问题／事件</strong>发表看法</li>
+          <li>已有发言只会当作讨论上下文，不会指定某 AI 当被评对象</li>
         </ul>
-        <p class="help-subtitle">互评 /mutual（推荐）</p>
+        <p class="help-subtitle">进阶（可选）</p>
         <ul>
-          <li><code>/mutual</code><br><small>让所有选中的 AI 互评当前回复</small></li>
-          <li><code>/mutual 重点分析优缺点</code><br><small>可加自定义评价提示</small></li>
-        </ul>
-        <p class="help-subtitle">单向引用</p>
-        <ul>
-          <li><code>@Claude 评价一下 @ChatGPT</code></li>
-          <li><code>/cross @Claude @Grok <- @Cursor</code></li>
+          <li><code>/mutual</code><br><small>让各 AI 参照彼此已有发言再谈议题</small></li>
+          <li><code>/cross …</code><br><small>上游遗留语法；一般使用不必</small></li>
         </ul>
       </details>
     </section>
